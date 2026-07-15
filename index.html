@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Art Studio Auto-Generator</title>
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif;
+            background-color: #0b0c10;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(255, 71, 87, 0.15) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(9, 132, 227, 0.15) 0%, transparent 40%);
+            color: #f1f1f1;
+            text-align: center;
+            padding: 40px 20px;
+            margin: 0;
+            min-height: 100vh;
+        }
+        .container { max-width: 1000px; margin: 0 auto; }
+        h1 { 
+            font-size: 2.8rem; font-weight: 900;
+            background: linear-gradient(135deg, #ff4757 30%, #2e86de 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            margin-bottom: 5px;
+        }
+        .subtitle { color: #a4b0be; margin-bottom: 40px; }
+        button {
+            background: linear-gradient(135deg, #ff4757 0%, #2e86de 100%);
+            color: white; border: none; padding: 18px 55px;
+            font-size: 1.1rem; font-weight: 800; border-radius: 50px;
+            cursor: pointer; transition: all 0.3s;
+            box-shadow: 0 5px 25px rgba(255, 71, 87, 0.3);
+        }
+        button:disabled { background: #222 !important; box-shadow: none; color: #555; }
+        .result-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 25px; margin-top: 50px; }
+        .result-card {
+            background: rgba(25, 26, 30, 0.85); border: 2px solid rgba(255, 255, 255, 0.05);
+            border-radius: 24px; padding: 22px; box-shadow: 0 15px 35px rgba(0,0,0,0.6);
+            backdrop-filter: blur(12px); transition: all 0.4s;
+        }
+        .result-grid .result-card:nth-child(odd) h3 { color: #ff4757; }
+        .result-grid .result-card:nth-child(even) h3 { color: #2e86de; }
+        .result-card h3 { font-size: 0.95rem; text-transform: uppercase; letter-spacing: 2px; border-bottom: 2px dashed rgba(255, 255, 255, 0.08); padding-bottom: 12px; margin-top: 0; }
+        .result-card p { font-size: 1.25rem; font-weight: 700; margin: 15px 0; color: #ffffff; }
+        .image-container { width: 100%; height: 250px; border-radius: 16px; overflow: hidden; background-color: #121318; position: relative; }
+        .result-card img { width: 100%; height: 100%; object-fit: contain; transition: opacity 0.3s, transform 0.5s; }
+        .shuffling img { opacity: 0.4; transform: scale(0.92); }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🎨 MUSE GENERATOR</h1>
+    <p class="subtitle">Campurkan warna imajinasi dan buat karakter unikmu!</p>
+    <button id="spinBtn" onclick="spinAll()">MIXING PROMPTS</button>
+    <div class="result-grid" id="resultGrid"></div>
+</div>
+
+<script>
+let databaseGambar = {};
+
+// Mengambil data gambar otomatis dari backend
+async function loadImages() {
+    try {
+        const response = await fetch('/api/images');
+        databaseGambar = await response.json();
+        inisialisasiTampilan();
+    } catch (error) {
+        console.error("Gagal memuat gambar", error);
+    }
+}
+
+function inisialisasiTampilan() {
+    const grid = document.getElementById("resultGrid");
+    grid.innerHTML = ""; 
+
+    for (let kategori in databaseGambar) {
+        const safeId = kategori.replace(/\s+/g, ''); 
+        const card = document.createElement("div");
+        card.className = "result-card";
+        card.id = `card-${safeId}`;
+        card.innerHTML = `
+            <h3>${kategori}</h3>
+            <p id="text-${safeId}">READY</p>
+            <div class="image-container" id="container-${safeId}">
+                <img id="img-${safeId}" src="https://via.placeholder.com/250x250/121318/2e86de?text=%3F" alt="Ready">
+            </div>
+        `;
+        grid.appendChild(card);
+    }
+}
+
+function spinAll() {
+    const button = document.getElementById("spinBtn");
+    button.disabled = true;
+    button.innerText = "MIXING...";
+
+    let durasiAcak = 2000; 
+    let intervalWaktu = 100; 
+    
+    for (let kategori in databaseGambar) {
+        const safeId = kategori.replace(/\s+/g, '');
+        const wrapper = document.getElementById(`container-${safeId}`);
+        if (wrapper) wrapper.classList.add("shuffling");
+    }
+    
+    const pengacak = setInterval(() => {
+        for (let kategori in databaseGambar) {
+            const safeId = kategori.replace(/\s+/g, '');
+            const daftarPilihan = databaseGambar[kategori];
+            if (daftarPilihan.length === 0) continue;
+
+            const indexAcak = Math.floor(Math.random() * daftarPilihan.length);
+            const pathGambar = daftarPilihan[indexAcak];
+            const namaFile = pathGambar.split('/').pop().split('.').shift();
+            const namaTeks = decodeURIComponent(namaFile).replace(/[_-]/g, ' ');
+
+            const textEl = document.getElementById(`text-${safeId}`);
+            const imgEl = document.getElementById(`img-${safeId}`);
+            if (textEl) textEl.innerText = namaTeks;
+            if (imgEl) imgEl.src = pathGambar;
+        }
+    }, intervalWaktu);
+
+    setTimeout(() => {
+        clearInterval(pengacak);
+        const glowColors = ["#ff4757", "#2e86de"];
+        let colorCounter = 0;
+
+        for (let kategori in databaseGambar) {
+            const safeId = kategori.replace(/\s+/g, '');
+            const daftarPilihan = databaseGambar[kategori];
+            if (daftarPilihan.length === 0) continue;
+
+            const indexFinal = Math.floor(Math.random() * daftarPilihan.length);
+            const pathGambarFinal = daftarPilihan[indexFinal];
+            const namaFileFinal = pathGambarFinal.split('/').pop().split('.').shift();
+            const namaTeksFinal = decodeURIComponent(namaFileFinal).replace(/[_-]/g, ' ');
+
+            const wrapper = document.getElementById(`container-${safeId}`);
+            if (wrapper) wrapper.classList.remove("shuffling");
+
+            const textEl = document.getElementById(`text-${safeId}`);
+            const imgEl = document.getElementById(`img-${safeId}`);
+            if (textEl) textEl.innerText = namaTeksFinal;
+            if (imgEl) imgEl.src = pathGambarFinal;
+            
+            const cardElement = document.getElementById(`card-${safeId}`);
+            if (cardElement) {
+                const targetColor = glowColors[colorCounter % glowColors.length];
+                cardElement.style.transform = "scale(1.05)";
+                cardElement.style.borderColor = targetColor;
+                cardElement.style.boxShadow = `0 0 30px ${targetColor}44`;
+                
+                setTimeout(() => {
+                    cardElement.style.transform = "scale(1)";
+                    cardElement.style.borderColor = "rgba(255, 255, 255, 0.05)";
+                    cardElement.style.boxShadow = "0 15px 35px rgba(0,0,0,0.6)";
+                }, 500);
+            }
+            colorCounter++;
+        }
+        button.disabled = false;
+        button.innerText = "MIXING PROMPTS";
+    }, durasiAcak);
+}
+
+window.onload = loadImages;
+</script>
+</body>
+</html>
