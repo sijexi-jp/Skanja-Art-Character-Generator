@@ -33,15 +33,49 @@
             box-shadow: 0 5px 25px rgba(255, 71, 87, 0.3);
         }
         button:disabled { background: #222 !important; box-shadow: none; color: #555; }
+        
         .result-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 25px; margin-top: 50px; }
+        
+        /* DESAIN KARTU */
         .result-card {
             background: rgba(25, 26, 30, 0.85); border: 2px solid rgba(255, 255, 255, 0.05);
             border-radius: 24px; padding: 22px; box-shadow: 0 15px 35px rgba(0,0,0,0.6);
             backdrop-filter: blur(12px); transition: all 0.4s;
+            position: relative;
         }
+
+        /* TAMPILAN JIKA KARTU DI-NONAKTIFKAN (OFF) */
+        .result-card.disabled-card {
+            opacity: 0.35;
+            filter: grayscale(80%);
+            border-color: rgba(255, 255, 255, 0.02);
+        }
+
+        /* TATA LETAK HEADER KARTU (JUDUL + CHECKBOX) */
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px dashed rgba(255, 255, 255, 0.08);
+            padding-bottom: 12px;
+            margin-bottom: 15px;
+        }
+
         .result-grid .result-card:nth-child(odd) h3 { color: #ff4757; }
         .result-grid .result-card:nth-child(even) h3 { color: #2e86de; }
-        .result-card h3 { font-size: 0.95rem; text-transform: uppercase; letter-spacing: 2px; border-bottom: 2px dashed rgba(255, 255, 255, 0.08); padding-bottom: 12px; margin-top: 0; }
+        .result-card h3 { 
+            font-size: 0.95rem; text-transform: uppercase; letter-spacing: 2px; 
+            margin: 0; 
+        }
+
+        /* CUSTOM CHECKBOX STYLE */
+        .toggle-checkbox {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+            accent-color: #ff4757; /* Warna centang */
+        }
+
         .result-card p { font-size: 1.25rem; font-weight: 700; margin: 15px 0; color: #ffffff; }
         .image-container { width: 100%; height: 250px; border-radius: 16px; overflow: hidden; background-color: #121318; position: relative; }
         .result-card img { width: 100%; height: 100%; object-fit: contain; transition: opacity 0.3s, transform 0.5s; }
@@ -51,9 +85,9 @@
 <body>
 
 <div class="container">
-    <h1>🎨 CHARACTER GENERATOR</h1>
-    <p class="subtitle">Campurkan warna imajinasi dan buat karakter unikmu!</p>
-    <button id="spinBtn" onclick="spinAll()">MIX</button>
+    <h1>🎨 SKANJA ART CHARACTER GENERATOR</h1>
+    <p class="subtitle">Pilih bagian yang ingin diacak dan mulai buat karaktermu!</p>
+    <button id="spinBtn" onclick="spinAll()">MIXING PROMPTS</button>
     <div class="result-grid" id="resultGrid"></div>
 </div>
 
@@ -81,7 +115,10 @@ function inisialisasiTampilan() {
         card.className = "result-card";
         card.id = `card-${safeId}`;
         card.innerHTML = `
-            <h3>${kategori}</h3>
+            <div class="card-header">
+                <h3>${kategori}</h3>
+                <input type="checkbox" class="toggle-checkbox" id="check-${safeId}" checked onchange="toggleCard('${safeId}')" title="Aktifkan/Nonaktifkan Kategori">
+            </div>
             <p id="text-${safeId}">READY</p>
             <div class="image-container" id="container-${safeId}">
                 <img id="img-${safeId}" src="https://via.placeholder.com/250x250/121318/2e86de?text=%3F" alt="Ready">
@@ -91,23 +128,61 @@ function inisialisasiTampilan() {
     }
 }
 
+// FUNGSI UNTUK MERUBAH TAMPILAN SAAT CHECKBOX DICENTANG / DILEPAS
+function toggleCard(safeId) {
+    const checkbox = document.getElementById(`check-${safeId}`);
+    const card = document.getElementById(`card-${safeId}`);
+    
+    if (checkbox.checked) {
+        card.classList.remove("disabled-card");
+    } else {
+        card.classList.add("disabled-card");
+    }
+}
+
 function spinAll() {
     const button = document.getElementById("spinBtn");
+    
+    // Cek apakah ada minimal 1 kategori yang aktif (dicentang)
+    let adaYangAktif = false;
+    for (let kategori in databaseGambar) {
+        const safeId = kategori.replace(/\s+/g, '');
+        const checkbox = document.getElementById(`check-${safeId}`);
+        if (checkbox && checkbox.checked) {
+            adaYangAktif = true;
+            break;
+        }
+    }
+
+    if (!adaYangAktif) {
+        alert("Pilih minimal satu kategori dengan mencentang kotaknya!");
+        return;
+    }
+
     button.disabled = true;
     button.innerText = "MIXING...";
 
     let durasiAcak = 2000; 
     let intervalWaktu = 100; 
     
+    // Aktifkan animasi berputar HANYA pada kartu yang dicentang
     for (let kategori in databaseGambar) {
         const safeId = kategori.replace(/\s+/g, '');
-        const wrapper = document.getElementById(`container-${safeId}`);
-        if (wrapper) wrapper.classList.add("shuffling");
+        const checkbox = document.getElementById(`check-${safeId}`);
+        if (checkbox && checkbox.checked) {
+            const wrapper = document.getElementById(`container-${safeId}`);
+            if (wrapper) wrapper.classList.add("shuffling");
+        }
     }
     
     const pengacak = setInterval(() => {
         for (let kategori in databaseGambar) {
             const safeId = kategori.replace(/\s+/g, '');
+            const checkbox = document.getElementById(`check-${safeId}`);
+            
+            // SKIP jika kategori di-nonaktifkan
+            if (!checkbox || !checkbox.checked) continue;
+
             const daftarPilihan = databaseGambar[kategori];
             if (daftarPilihan.length === 0) continue;
 
@@ -130,6 +205,11 @@ function spinAll() {
 
         for (let kategori in databaseGambar) {
             const safeId = kategori.replace(/\s+/g, '');
+            const checkbox = document.getElementById(`check-${safeId}`);
+            
+            // SKIP jika kategori di-nonaktifkan
+            if (!checkbox || !checkbox.checked) continue;
+
             const daftarPilihan = databaseGambar[kategori];
             if (daftarPilihan.length === 0) continue;
 
@@ -146,6 +226,7 @@ function spinAll() {
             if (textEl) textEl.innerText = namaTeksFinal;
             if (imgEl) imgEl.src = pathGambarFinal;
             
+            // Efek Glow hanya untuk kartu aktif yang di-spin
             const cardElement = document.getElementById(`card-${safeId}`);
             if (cardElement) {
                 const targetColor = glowColors[colorCounter % glowColors.length];
